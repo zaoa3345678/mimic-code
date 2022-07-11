@@ -1,9 +1,7 @@
 name: Generate tables on BigQuery
 
 on:
-  release:
-    types: [published]
-    branches: ["main"]
+  push
 
 jobs:
   create-tables:
