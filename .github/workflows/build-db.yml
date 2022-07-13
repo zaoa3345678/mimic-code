@@ -121,3 +121,55 @@ jobs:
           # The default PostgreSQL port
           POSTGRES_PORT: 5432
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+  build-mimic-iv-mysql:
+    # Containers must run in Linux based operating systems
+    runs-on: ubuntu-latest
+    # Docker Hub image that `container-job` executes in
+    container: node:latest
+
+    # Service containers to run with `container-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: mysql
+        command: --default-authentication-plugin=mysql_native_password
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Install psql command
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends mysql
+
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v0'
+        with:
+            project_id: ${{ secrets.GCP_PROJECT_ID }}
+            credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v0'
+
+      - name: Download demo and create tables on PostgreSQL
+        run: |
+          echo "Downloading MIMIC-IV demo from GCP."
+          gsutil -q -u $PROJECT_ID -m cp -r gs://mimic-iv-archive/v2.0/demo ./
+          mv hosp/*.csv.gz ./
+          mv icu/*.csv.gz ./
+          gzip -d *.csv.gz
+          echo "Building and loading data into mysql."
+          mysql -u mysql -p mysql mysql < mimic-iv/buildmimic/mysql/load.sql
+
+        env:
+          # The hostname used to communicate with the PostgreSQL service container
+          POSTGRES_HOST: postgres
+          PGPASSWORD: postgres
+          # The default PostgreSQL port
+          POSTGRES_PORT: 5432
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
